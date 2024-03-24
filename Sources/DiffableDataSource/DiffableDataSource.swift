@@ -1,4 +1,3 @@
-#if canImport(UIKit)
 import UIKit
 
 @MainActor 
@@ -168,4 +167,3 @@ where
 Section: Sendable,
 Section.ID: Sendable,
 Item: Sendable {}
-#endif
