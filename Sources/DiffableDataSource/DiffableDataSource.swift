@@ -1,6 +1,6 @@
 import UIKit
 
-@MainActor 
+@MainActor
 public struct
 DiffableDataSource<Section: Identifiable, Item: Hashable> {
   private let dataSource: _DataSource
@@ -52,7 +52,7 @@ public struct DiffableSnapshot<Section: Identifiable, Item: Hashable> {
   internal var items = [Section.ID: [Item]]()
   private var sectionsSeen = Set<Section.ID>()
   private var itemsSeen = [Section.ID:Set<Int>]()
-
+  
   public init() {
     self.sectionIdentifiers = .init()
     self.sections = .init()
@@ -81,13 +81,44 @@ public struct DiffableSnapshot<Section: Identifiable, Item: Hashable> {
     self.itemsSeen[section.id]?.subtract(items.map(\.hashValue))
   }
   
-  internal func difference(from oldValue: DiffableSnapshot) -> Changes {
+  internal func applyingDifference(to oldValue: inout DiffableSnapshot) -> Changes {
     var changes = Changes(.init(), .init(), .init(), .init())
+    let sectionDifference = self.sections.difference(from: oldValue.sections)
+    defer {
+      oldValue.sections = oldValue
+        .sections
+        .applying(sectionDifference) ?? []
+      oldValue.sectionIdentifiers = sectionIdentifiers
+      oldValue.itemsSeen = itemsSeen
+      oldValue.sectionsSeen = sectionsSeen
+    }
+    for change in sectionDifference {
+      switch change {
+      case let .remove(offset, _, _):
+        changes.sectionRemovals.insert(offset)
+      case let .insert(offset, element, _):
+        changes.sectionInsertions.insert(offset)
+        if let items = items[element] {
+          oldValue.items[element] = items
+          changes.itemInsertions.formUnion(
+            items.indices
+              .map {
+                IndexPath(row: $0, section: offset)
+              }
+          )
+        }
+      }
+    }
+    
     for section in sections {
-      guard let oldItems = oldValue.items[section]
+      guard
+        let oldItems = oldValue.items[section],
+        let difference = items[section]?.difference(from: oldItems)
       else { continue }
-      for change in items[section, default: []]
-        .difference(from: oldItems) {
+      defer {
+        oldValue.items[section] = oldItems.applying(difference)
+      }
+      for change in difference {
         switch change {
         case let .remove(offset, _, _):
           changes.itemRemovals.insert(
@@ -100,24 +131,10 @@ public struct DiffableSnapshot<Section: Identifiable, Item: Hashable> {
           changes.itemInsertions.insert(
             IndexPath(
               row: offset,
-              section: oldValue.sections.firstIndex(of: section)!
+              section: sections.firstIndex(of: section)!
             )
           )
         }
-      }
-    }
-    for change in self
-      .sections
-      .difference(from: oldValue.sections) {
-      switch change {
-      case let .remove(offset, _, _):
-        changes.sectionRemovals.insert(offset)
-      case let .insert(offset, element, _):
-        // all items in a new section are insertions
-        items[element, default: []].indices.forEach { index in
-          changes.itemInsertions.insert(.init(row: index, section: offset))
-        }
-        changes.sectionInsertions.insert(offset)
       }
     }
     return changes
@@ -161,10 +178,7 @@ internal extension DiffableDataSource {
       _ collectionView: UICollectionView,
       numberOfItemsInSection section: Int
     ) -> Int {
-      currentSnapshot.items[
-        currentSnapshot
-          .sections[section], default: []
-      ].count
+      currentSnapshot.items[currentSnapshot.sections[section]]?.count ?? 0
     }
     
     func numberOfSections(in collectionView: UICollectionView) -> Int {
@@ -183,9 +197,8 @@ internal extension DiffableDataSource {
     }
     
     func apply(_ snapshot: DiffableSnapshot<Section, Item>) {
-      let changes = snapshot.difference(from: currentSnapshot)
       collectionView.performBatchUpdates { [unowned self] in
-        currentSnapshot = snapshot
+        let changes = snapshot.applyingDifference(to: &currentSnapshot)
         collectionView.deleteSections(changes.sectionRemovals)
         collectionView.insertSections(changes.sectionInsertions)
         collectionView.deleteItems(at: Array(changes.itemRemovals))
