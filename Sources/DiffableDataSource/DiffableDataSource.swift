@@ -83,7 +83,7 @@ public struct DiffableSnapshot<Section: Identifiable, Item: Hashable> {
   
   internal func difference(from oldValue: DiffableSnapshot) -> Changes {
     var changes = Changes(.init(), .init(), .init(), .init())
-    for (index, section) in sections.enumerated() {
+    for section in sections {
       guard let oldItems = oldValue.items[section]
       else { continue }
       for change in items[section, default: []]
@@ -97,7 +97,12 @@ public struct DiffableSnapshot<Section: Identifiable, Item: Hashable> {
             )
           )
         case let .insert(offset, _, _):
-          changes.itemInsertions.insert(IndexPath(row: offset, section: index))
+          changes.itemInsertions.insert(
+            IndexPath(
+              row: offset,
+              section: oldValue.sections.firstIndex(of: section)!
+            )
+          )
         }
       }
     }
