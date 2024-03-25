@@ -23,12 +23,8 @@ class ViewController: UIViewController {
         configuration.image = UIImage(systemName: "star")
         cell.contentConfiguration = configuration
       }
-    var snapshot = DiffableSnapshot<Section, Int>()
-    snapshot.appendSections([.main])
-    snapshot.appendItems([1, 2, 3], toSection: .main)
     dataSource = DiffableDataSource(
-      collectionView: collectionView,
-      initial: snapshot
+      collectionView: collectionView
     ) { collectionView, indexPath, item in
       collectionView.dequeueConfiguredReusableCell(
         using: cellRegistration,
@@ -77,8 +73,8 @@ class ViewController: UIViewController {
     }
   }
   
-  func randomSnapshot() -> DiffableSnapshot<Section, Int> {
-    var snapshot = DiffableSnapshot<Section, Int>()
+  func randomSnapshot() -> DiffableDataSourceSnapshot<Section, Int> {
+    var snapshot = DiffableDataSourceSnapshot<Section, Int>()
     snapshot.appendSections([.main])
     var numbers = [Int]()
     (0..<49).forEach { _ in

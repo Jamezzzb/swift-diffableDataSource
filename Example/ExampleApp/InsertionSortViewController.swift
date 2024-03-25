@@ -133,7 +133,7 @@ extension InsertionSortViewController {
       cell.backgroundColor = sortNode.color
     }
     
-    dataSource = .init(collectionView: insertionCollectionView, initial: .init()) {
+    dataSource = .init(collectionView: insertionCollectionView) {
       (collectionView: UICollectionView, indexPath: IndexPath, node: InsertionSortArray.SortNode) -> UICollectionViewCell in
       return collectionView.dequeueConfiguredReusableCell(using: cellRegistration, for: indexPath, item: node)
       
@@ -153,11 +153,11 @@ extension InsertionSortViewController {
   }
   func randomizedSnapshot(
     for bounds: CGRect
-  ) -> DiffableSnapshot<
+  ) -> DiffableDataSourceSnapshot<
     InsertionSortArray,
     InsertionSortArray.SortNode
   > {
-    var snapshot = DiffableSnapshot<InsertionSortArray, InsertionSortArray.SortNode>()
+    var snapshot = DiffableDataSourceSnapshot<InsertionSortArray, InsertionSortArray.SortNode>()
     let rowCount = rows(for: bounds)
     let columnCount = columns(for: bounds)
     for _ in 0..<rowCount {

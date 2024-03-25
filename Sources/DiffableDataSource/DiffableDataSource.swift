@@ -6,7 +6,7 @@ DiffableDataSource<Section: Identifiable, Item: Hashable> {
   private let dataSource: _DataSource
   public init(
     collectionView: UICollectionView,
-    initial: DiffableSnapshot<Section, Item>,
+    initial: DiffableDataSourceSnapshot<Section, Item> = .init(),
     cellProvider: @escaping CellProvider
   ) {
     dataSource = .init(
@@ -16,15 +16,16 @@ DiffableDataSource<Section: Identifiable, Item: Hashable> {
     )
   }
   
-  public func apply(_ snapshot: DiffableSnapshot<Section, Item>) {
+  public func apply(_ snapshot: DiffableDataSourceSnapshot<Section, Item>) {
     dataSource.apply(snapshot)
   }
   
-  public func snapshot() -> DiffableSnapshot<Section, Item> {
+  public func snapshot() -> DiffableDataSourceSnapshot<Section, Item> {
     dataSource.currentSnapshot
   }
   
-  public typealias Registration<CellType: UICollectionViewCell> = UICollectionView
+  public typealias 
+  Registration<CellType: UICollectionViewCell> = UICollectionView
     .CellRegistration<CellType, Item>
   
   public typealias CellProvider = (
@@ -46,7 +47,8 @@ where
 Item: Sendable,
 Section: Sendable {}
 
-public struct DiffableSnapshot<Section: Identifiable, Item: Hashable> {
+public struct 
+DiffableDataSourceSnapshot<Section: Identifiable, Item: Hashable> {
   public private(set) var sectionIdentifiers = [Section]()
   internal var sections = [Section.ID]()
   internal var items = [Section.ID: [Item]]()
@@ -68,7 +70,10 @@ public struct DiffableSnapshot<Section: Identifiable, Item: Hashable> {
     }
   }
   
-  public mutating func appendItems(_ items: [Item], toSection section: Section) {
+  public mutating func appendItems(
+    _ items: [Item],
+    toSection section: Section
+  ) {
     for item in items {
       if itemsSeen[section.id, default: []].insert(item.hashValue).inserted {
         self.items[section.id, default: []].append(item)
@@ -76,22 +81,32 @@ public struct DiffableSnapshot<Section: Identifiable, Item: Hashable> {
     }
   }
   
-  public mutating func deleteItems(_ items: [Item], inSection section: Section) {
+  public mutating func deleteItems(
+    _ items: [Item],
+    inSection section: Section
+  ) {
     self.items[section.id]!.removeAll(where: items.contains)
     self.itemsSeen[section.id]?.subtract(items.map(\.hashValue))
   }
   
-  internal func applyingDifference(to oldValue: inout DiffableSnapshot) -> Changes {
+  public mutating func reset() {
+    self = .init()
+  }
+  
+  internal func accumulateDifference(
+    into snapshot: inout DiffableDataSourceSnapshot
+  ) -> Changes {
     var changes = Changes(.init(), .init(), .init(), .init())
-    let sectionDifference = self.sections.difference(from: oldValue.sections)
+    let sectionDifference = self.sections.difference(from: snapshot.sections)
     defer {
-      oldValue.sections = oldValue
+      snapshot.sections = snapshot
         .sections
         .applying(sectionDifference) ?? []
-      oldValue.sectionIdentifiers = sectionIdentifiers
-      oldValue.itemsSeen = itemsSeen
-      oldValue.sectionsSeen = sectionsSeen
+      snapshot.sectionIdentifiers = sectionIdentifiers
+      snapshot.itemsSeen = itemsSeen
+      snapshot.sectionsSeen = sectionsSeen
     }
+    
     for change in sectionDifference {
       switch change {
       case let .remove(offset, _, _):
@@ -99,12 +114,9 @@ public struct DiffableSnapshot<Section: Identifiable, Item: Hashable> {
       case let .insert(offset, element, _):
         changes.sectionInsertions.insert(offset)
         if let items = items[element] {
-          oldValue.items[element] = items
+          snapshot.items[element] = items
           changes.itemInsertions.formUnion(
-            items.indices
-              .map {
-                IndexPath(row: $0, section: offset)
-              }
+            items.indices.map { IndexPath(row: $0, section: offset) }
           )
         }
       }
@@ -112,11 +124,11 @@ public struct DiffableSnapshot<Section: Identifiable, Item: Hashable> {
     
     for section in sections {
       guard
-        let oldItems = oldValue.items[section],
-        let difference = items[section]?.difference(from: oldItems)
+        let currentItems = snapshot.items[section],
+        let difference = items[section]?.difference(from: currentItems)
       else { continue }
       defer {
-        oldValue.items[section] = oldItems.applying(difference)
+        snapshot.items[section] = currentItems.applying(difference)
       }
       for change in difference {
         switch change {
@@ -124,7 +136,7 @@ public struct DiffableSnapshot<Section: Identifiable, Item: Hashable> {
           changes.itemRemovals.insert(
             IndexPath(
               row: offset,
-              section: oldValue.sections.firstIndex(of: section)!
+              section: snapshot.sections.firstIndex(of: section)!
             )
           )
         case let .insert(offset, _, _):
@@ -148,7 +160,7 @@ public struct DiffableSnapshot<Section: Identifiable, Item: Hashable> {
   )
 }
 
-extension DiffableSnapshot: Sendable
+extension DiffableDataSourceSnapshot: Sendable
 where
 Section: Sendable,
 Section.ID: Sendable,
@@ -158,13 +170,13 @@ internal extension DiffableDataSource {
   private final class _DataSource:
     NSObject, UICollectionViewDataSource, Sendable
   {
-    var currentSnapshot = DiffableSnapshot<Section, Item>()
+    var currentSnapshot = DiffableDataSourceSnapshot<Section, Item>()
     let cellProvider: CellProvider
     let collectionView: UICollectionView
     
     init(
       collectionView: UICollectionView,
-      initial: DiffableSnapshot<Section, Item>,
+      initial: DiffableDataSourceSnapshot<Section, Item>,
       cellProvider: @escaping CellProvider
     ) {
       self.cellProvider = cellProvider
@@ -196,9 +208,9 @@ internal extension DiffableDataSource {
       return cellProvider(collectionView, indexPath, item)
     }
     
-    func apply(_ snapshot: DiffableSnapshot<Section, Item>) {
+    func apply(_ snapshot: DiffableDataSourceSnapshot<Section, Item>) {
       collectionView.performBatchUpdates { [unowned self] in
-        let changes = snapshot.applyingDifference(to: &currentSnapshot)
+        let changes = snapshot.accumulateDifference(into: &currentSnapshot)
         collectionView.deleteSections(changes.sectionRemovals)
         collectionView.insertSections(changes.sectionInsertions)
         collectionView.deleteItems(at: Array(changes.itemRemovals))
