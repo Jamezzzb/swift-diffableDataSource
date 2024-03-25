@@ -81,7 +81,7 @@ class ViewController: UIViewController {
     var snapshot = DiffableSnapshot<Section, Int>()
     snapshot.appendSections([.main])
     var numbers = [Int]()
-    (0...50).forEach { _ in
+    (0..<49).forEach { _ in
       numbers.append(Int.random(in: 0..<99))
     }
     snapshot.appendItems(numbers, toSection: .main)
