@@ -156,7 +156,10 @@ internal extension DiffableDataSource {
       _ collectionView: UICollectionView,
       numberOfItemsInSection section: Int
     ) -> Int {
-      currentSnapshot.items[currentSnapshot.sections[section]]!.count
+      currentSnapshot.items[
+        currentSnapshot
+          .sections[section], default: []
+      ].count
     }
     
     func numberOfSections(in collectionView: UICollectionView) -> Int {
