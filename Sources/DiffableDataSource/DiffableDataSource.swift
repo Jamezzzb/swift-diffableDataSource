@@ -77,11 +77,11 @@ public struct DiffableSnapshot<Section: Identifiable, Item: Hashable> {
   
   internal func difference(from oldValue: DiffableSnapshot) -> Changes {
     var changes = Changes(.init(), .init(), .init(), .init())
-    for (index, section) in oldValue.sections.enumerated() {
-      guard let newItems = items[section]
+    for (index, section) in sections.enumerated() {
+      guard let oldItems = oldValue.items[section]
       else { continue }
-      for change in newItems
-        .difference(from: oldValue.items[section, default: []]) {
+      for change in items[section]!
+        .difference(from: oldItems) {
         switch change {
         case let .remove(offset, _, _):
           changes.itemRemovals.insert(IndexPath(row: offset, section: index))
