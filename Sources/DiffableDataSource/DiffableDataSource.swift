@@ -50,7 +50,8 @@ public struct DiffableSnapshot<Section: Identifiable, Item: Hashable> {
   public private(set) var sectionIdentifiers = [Section]()
   internal var sections = [Section.ID]()
   internal var items = [Section.ID: [Item]]()
-  private var _sectionIDs = Set<Section.ID>()
+  private var sectionsSeen = Set<Section.ID>()
+  private var itemsSeen = [Section.ID:Set<Int>]()
 
   public init() {
     self.sectionIdentifiers = .init()
@@ -59,16 +60,20 @@ public struct DiffableSnapshot<Section: Identifiable, Item: Hashable> {
   }
   
   public mutating func appendSections(_ sections: [Section]) {
-    sections.forEach {
-      if _sectionIDs.insert($0.id).inserted {
-        self.sections.append($0.id)
-        self.sectionIdentifiers.append($0)
+    for section in sections {
+      if sectionsSeen.insert(section.id).inserted {
+        self.sections.append(section.id)
+        self.sectionIdentifiers.append(section)
       }
     }
   }
   
   public mutating func appendItems(_ items: [Item], toSection section: Section) {
-    self.items[section.id, default: []].append(contentsOf: items)
+    for item in items {
+      if itemsSeen[section.id, default: []].insert(item.hashValue).inserted {
+        self.items[section.id, default: []].append(item)
+      }
+    }
   }
   
   public mutating func deleteItems(_ items: [Item], inSection section: Section) {
