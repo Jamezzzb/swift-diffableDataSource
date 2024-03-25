@@ -78,7 +78,7 @@ extension InsertionSortViewController {
         let items = section.values
         
         // Replace the items for this section with the newly sorted items.
-        updatedSnapshot.deleteItems(items, inSection: section)
+        updatedSnapshot.deleteItems(items, fromSection: section)
         updatedSnapshot.appendItems(items, toSection: section)
         
         sectionCountNeedingSort += 1

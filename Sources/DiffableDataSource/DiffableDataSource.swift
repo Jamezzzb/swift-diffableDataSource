@@ -24,7 +24,23 @@ DiffableDataSource<Section: Identifiable, Item: Hashable> {
     dataSource.currentSnapshot
   }
   
-  public typealias 
+  public func sectionIdentifier(for index: Int) -> Section? {
+    dataSource.currentSnapshot.sectionIdentifier(for: index)
+  }
+  
+  public func index(for sectionIdentifier: Section) -> Int? {
+    dataSource.currentSnapshot.index(for: sectionIdentifier)
+  }
+  
+  public func itemIdentifier(for indexPath: IndexPath) -> Item? {
+    dataSource.currentSnapshot.itemIdentifier(for: indexPath)
+  }
+  
+  public func indexPath(for itemIdentifier: Item) -> IndexPath? {
+    dataSource.currentSnapshot.indexPath(for: itemIdentifier)
+  }
+  
+  public typealias
   Registration<CellType: UICollectionViewCell> = UICollectionView
     .CellRegistration<CellType, Item>
   
@@ -47,15 +63,15 @@ where
 Item: Sendable,
 Section: Sendable {}
 
-public struct 
+public struct
 DiffableDataSourceSnapshot<Section: Identifiable, Item: Hashable> {
   public private(set) var sectionIdentifiers = [Section]()
   internal var sections = [Section.ID]()
   internal var items = [Section.ID: [Item]]()
   private var sectionsSeen = Set<Section.ID>()
-  private var itemsSeen = [Section.ID:Set<Int>]()
+  private var itemsSeen = Set<Int>()
   
-  public init() {
+ public init() {
     self.sectionIdentifiers = .init()
     self.sections = .init()
     self.items = .init()
@@ -75,7 +91,7 @@ DiffableDataSourceSnapshot<Section: Identifiable, Item: Hashable> {
     toSection section: Section
   ) {
     for item in items {
-      if itemsSeen[section.id, default: []].insert(item.hashValue).inserted {
+      if itemsSeen.insert(item.hashValue).inserted {
         self.items[section.id, default: []].append(item)
       }
     }
@@ -83,14 +99,49 @@ DiffableDataSourceSnapshot<Section: Identifiable, Item: Hashable> {
   
   public mutating func deleteItems(
     _ items: [Item],
-    inSection section: Section
+    fromSection section: Section
   ) {
-    self.items[section.id]!.removeAll(where: items.contains)
-    self.itemsSeen[section.id]?.subtract(items.map(\.hashValue))
+    self.items[section.id]?.removeAll(where: items.contains)
+    self.itemsSeen.subtract(items.map(\.hashValue))
   }
   
   public mutating func reset() {
     self = .init()
+  }
+  
+  internal func sectionIdentifier(for index: Int) -> Section? {
+    guard
+      sectionIdentifiers.indices.contains(index)
+    else { return nil }
+    return sectionIdentifiers[index]
+  }
+  
+  internal func index(for sectionIdentifier: Section) -> Int? {
+    sections.firstIndex(of: sectionIdentifier.id)
+  }
+  
+  internal func itemIdentifier(for indexPath: IndexPath) -> Item? {
+    guard
+      sections.indices.contains(indexPath.section),
+      let items = items[sections[indexPath.section]],
+      items.indices.contains(indexPath.row)
+    else {
+      assertionFailure()
+      return nil
+    }
+    return items[indexPath.row]
+  }
+  
+  internal func indexPath(for itemIdentifier: Item) -> IndexPath? {
+    items.first(where: {
+      $0.value.contains(itemIdentifier)
+    }).map {
+      IndexPath(
+        row:
+          items[$0.key]!.firstIndex(of: itemIdentifier)!,
+        section: sections.firstIndex(of: $0.key)!
+      )
+    }
   }
   
   internal func accumulateDifference(
@@ -166,7 +217,7 @@ Section: Sendable,
 Section.ID: Sendable,
 Item: Sendable {}
 
-internal extension DiffableDataSource {
+private extension DiffableDataSource {
   private final class _DataSource:
     NSObject, UICollectionViewDataSource, Sendable
   {
