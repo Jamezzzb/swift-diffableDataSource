@@ -78,6 +78,7 @@ public struct DiffableSnapshot<Section: Identifiable, Item: Hashable> {
   
   public mutating func deleteItems(_ items: [Item], inSection section: Section) {
     self.items[section.id]!.removeAll(where: items.contains)
+    self.itemsSeen[section.id]?.subtract(items.map(\.hashValue))
   }
   
   internal func difference(from oldValue: DiffableSnapshot) -> Changes {
@@ -85,7 +86,7 @@ public struct DiffableSnapshot<Section: Identifiable, Item: Hashable> {
     for (index, section) in sections.enumerated() {
       guard let oldItems = oldValue.items[section]
       else { continue }
-      for change in items[section]!
+      for change in items[section, default: []]
         .difference(from: oldItems) {
         switch change {
         case let .remove(offset, _, _):
