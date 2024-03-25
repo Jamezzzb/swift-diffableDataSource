@@ -84,7 +84,12 @@ public struct DiffableSnapshot<Section: Identifiable, Item: Hashable> {
         .difference(from: oldItems) {
         switch change {
         case let .remove(offset, _, _):
-          changes.itemRemovals.insert(IndexPath(row: offset, section: index))
+          changes.itemRemovals.insert(
+            IndexPath(
+              row: offset,
+              section: oldValue.sections.firstIndex(of: section)!
+            )
+          )
         case let .insert(offset, _, _):
           changes.itemInsertions.insert(IndexPath(row: offset, section: index))
         }
