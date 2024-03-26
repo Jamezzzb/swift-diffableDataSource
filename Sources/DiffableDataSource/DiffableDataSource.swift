@@ -71,7 +71,7 @@ DiffableDataSourceSnapshot<Section: Identifiable, Item: Hashable> {
   private var sectionsSeen = Set<Section.ID>()
   private var itemsSeen = Set<Int>()
   
- public init() {
+  public init() {
     self.sectionIdentifiers = .init()
     self.sections = .init()
     self.items = .init()
@@ -164,12 +164,11 @@ DiffableDataSourceSnapshot<Section: Identifiable, Item: Hashable> {
         changes.sectionRemovals.insert(offset)
       case let .insert(offset, element, _):
         changes.sectionInsertions.insert(offset)
-        if let items = items[element] {
-          snapshot.items[element] = items
-          changes.itemInsertions.formUnion(
-            items.indices.map { IndexPath(row: $0, section: offset) }
-          )
-        }
+        guard let items = items[element] else { continue }
+        snapshot.items[element] = items
+        changes.itemInsertions.formUnion(
+          items.indices.map { .init(row: $0, section: offset) }
+        )
       }
     }
     
@@ -185,17 +184,14 @@ DiffableDataSourceSnapshot<Section: Identifiable, Item: Hashable> {
         switch change {
         case let .remove(offset, _, _):
           changes.itemRemovals.insert(
-            IndexPath(
+            .init(
               row: offset,
               section: snapshot.sections.firstIndex(of: section)!
             )
           )
         case let .insert(offset, _, _):
           changes.itemInsertions.insert(
-            IndexPath(
-              row: offset,
-              section: sections.firstIndex(of: section)!
-            )
+            .init(row: offset, section: sections.firstIndex(of: section)!)
           )
         }
       }
